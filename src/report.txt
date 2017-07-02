@@ -1,0 +1,26 @@
+Author - Himanshu Goyal
+
+For the assignemnt I have used PySpark. Converted the log file data into clean database for analysis. Stored the data in RDDs(Resilient Distributive Dataset).
+
+1. "parse_log_file" function cleans the data and returns timestamp,ip,url 
+
+2. "ip_to_sessionize" function sessionizes the data as per IPs. Returns (ip,sessions) where "sessions" contains all the sessions of the IP "ip". "sessions" is a tuple containing session info  - (i) session length (ii) unique urls (iii) session start time (iv) session end time
+
+3. "average_session_time" function returns the average session time per IP.
+
+Machine Learning Part - 
+
+1. In order to predict the number of requests in a particular minute I have used 6 features - 
+
+	a) Mean of no. of requests of last 5(window size) minutes
+	b) Trend of no. of requests of last 5(window size) minutes(Slope of the values of last 5 minutes)
+	c) other 4 features are the number of requests in last 4 minutes
+
+	Using the hidden as well as latent features in order to make the predictions.
+
+	I have taken help from the following research paper - "Multivariate Time Series Classification by Combining Trend-Based and Value-Based Approximations". Link - https://link.springer.com/chapter/10.1007%2F978-3-642-31128-4_29?LI=true
+
+	SVR and Logistic Regression models are used for prediction. Plots of Test Output vs Predicitons show motivating results.
+
+2. Prediction of session time or unique urls for an IP cannot be done with the limited information of just knowing an IP. For example - An IP can be very active in the afternoon and dormant at night. So the best possible heuristic in this case is by taking average of all the sessions for that IP or may be the info of last session.
+
