@@ -1,6 +1,4 @@
 
-## Author - Himanshu Goyal ##
-
 from pyspark import SparkContext, SparkConf, SQLContext
 from datetime import datetime
 from pyspark.sql import Row
@@ -21,59 +19,14 @@ sc = SparkContext(conf=conf)
 sqlContext = SQLContext(sc)
 Window_Size = 5
 
-########################################         DATA ANALYTICS PART         #################################
-
-def parse_log_file(data):
-	split_data= data.split('\"')
-	date = split_data[0].split()[0]
-	ip = split_data[0].split()[2]
-	url = split_data[1].split()[1]
-	return ((date),(ip,url))
-
-def __datetime(date_str):
-    return datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%fZ')
-
-def get_seconds(t1,t2):
-	return (t1-t2).total_seconds()
-
-def ip_to_sessionize(data):
-	ip,time_url_list = data
-	st=0
-	session_urls = []
-	sessions=[]
-	pr=0
-	count=0
-	for (time,url) in time_url_list:
-		if(count==0):
-			pr=time
-			st=time
-		if(get_seconds(__datetime(time),__datetime(pr))<=900):
-			session_urls.append(url)
-		else:
-			session_time = get_seconds(__datetime(pr),__datetime(st))
-			sessions.append((session_time,len(set(session_urls)),st,pr))
-			st = time 
-			session_urls = [url]
-
-		if count==len(time_url_list)-1:
-			session_time = get_seconds(__datetime(time),__datetime(st))
-			session_urls.append(url)
-			sessions.append((session_time,len(set(session_urls)),st,time))
-		pr = time
-		count+=1
-
-	return (ip,sessions) ## ip -> user ip ; sessions -> (session_time,number of unique urls,session_start,session_end) ##
-
-def average_session_time(data):
-
-	ip,session_params = data
-	total_session_time=0
-	for t in session_params:
-		total_session_time=total_session_time+t[0]
-
-	return (total_session_time/len(session_params))
-
 #####################################          MACHINE LEARNING PART        #######################################
+
+def regression_data(data):  ## parsing data and returning (hour,minute)
+	see = data.split("\"")
+	date = see[0].split()[0]
+	hour = date.split(":")[0][-2:]
+	minute = date.split(':')[1]
+	return (hour,minute)
 
 def trend_value(tv):      ## used to calculate the trends for last 5 minutes
 	y = tv
@@ -85,13 +38,6 @@ def trend_value(tv):      ## used to calculate the trends for last 5 minutes
 
 def mean_value(mv):    ## used to calculate the mean values for last 5 minutes
 	return np.mean(mv)
-
-def regression_data(data):
-	see = data.split("\"")
-	date = see[0].split()[0]
-	hour = date.split(":")[0][-2:]
-	minute = date.split(':')[1]
-	return (hour,minute)
 
 def train_test_dataset_Regression(m_l):
 
@@ -150,6 +96,60 @@ def Linear_Regression(x,y,tx,ty):
 
 	return pred
 
+
+########################################         DATA ANALYTICS PART         #################################
+
+def parse_log_file(data):        ##. parsing data and returning (timestamp,(ip,url)) 
+	split_data= data.split('\"')
+	date = split_data[0].split()[0]
+	ip = split_data[0].split()[2]
+	url = split_data[1].split()[1]
+	return ((date),(ip,url))
+
+def __datetime(date_str):
+    return datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+
+def get_seconds(t1,t2):
+	return (t1-t2).total_seconds()
+
+def ip_to_sessionize(data):   ##. sessionizing according to ip
+	ip,time_url_list = data
+	st=0
+	session_urls = []
+	sessions=[]
+	pr=0
+	count=0
+	for (time,url) in time_url_list:
+		if(count==0):
+			pr=time
+			st=time
+		if(get_seconds(__datetime(time),__datetime(pr))<=900):
+			session_urls.append(url)
+		else:
+			session_time = get_seconds(__datetime(pr),__datetime(st))
+			sessions.append((session_time,len(set(session_urls)),st,pr))
+			st = time 
+			session_urls = [url]
+
+		if count==len(time_url_list)-1:
+			session_time = get_seconds(__datetime(time),__datetime(st))
+			session_urls.append(url)
+			sessions.append((session_time,len(set(session_urls)),st,time))
+		pr = time
+		count+=1
+
+	return (ip,sessions) ## ip -> user ip ; sessions -> (session_time,number of unique urls,session_start,session_end) ##
+
+def average_session_time(data):
+
+	ip,session_params = data
+	total_session_time=0
+	for t in session_params:
+		total_session_time=total_session_time+t[0]
+
+	return (total_session_time/len(session_params))
+
+
 ###########     ###########     ###########     ###########     ###########     ###########     ###########     ###########     ###########     
 
 
@@ -172,7 +172,8 @@ if __name__ == "__main__":
 	session_ip_rdd = sessionized_data.flatMap(lambda line: [(sess_t[0], line[0]) for sess_t in line[1]])
 	sorted_session = session_ip_rdd.sortByKey(False) ## Sessions Sorted in Decreasing order as per Session Time ##
 
-	
+	###### Predictions for the number of requests in next 1 minute #######
+
 	request_per_minute = user_rdd.map(regression_data).sortBy(lambda line: (line[0],line[1])) \
 		.map(lambda line : (line[0]+line[1],1)).reduceByKey(lambda a, b: a + b).sortByKey() ## gives the number of requests per minutes sorted by time
 
